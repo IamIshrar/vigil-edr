@@ -1,0 +1,7 @@
+{
+  "port": 8787,
+  "virustotal_api_key": "",
+  "use_sysmon_if_available": true,
+  "response_enabled": true,
+  "retention_days": 7
+}

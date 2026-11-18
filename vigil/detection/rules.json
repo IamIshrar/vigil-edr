@@ -1,0 +1,1167 @@
+[
+  {
+    "id": "VIG-001",
+    "title": "Office application started a shell or script host",
+    "severity": "high",
+    "mitre": {
+      "tactic": "Execution",
+      "technique": "T1204.002",
+      "name": "User Execution: Malicious File"
+    },
+    "category": "process",
+    "action": "start",
+    "match": {
+      "all": [
+        {
+          "field": "process.parent.name",
+          "op": "in",
+          "value": [
+            "winword.exe",
+            "excel.exe",
+            "powerpnt.exe",
+            "outlook.exe",
+            "msaccess.exe",
+            "mspub.exe",
+            "onenote.exe"
+          ]
+        },
+        {
+          "field": "process.name",
+          "op": "in",
+          "value": [
+            "powershell.exe",
+            "pwsh.exe",
+            "cmd.exe",
+            "wscript.exe",
+            "cscript.exe",
+            "mshta.exe",
+            "rundll32.exe",
+            "regsvr32.exe",
+            "certutil.exe",
+            "bitsadmin.exe"
+          ]
+        }
+      ]
+    },
+    "description": "A Microsoft Office program launched a command shell or scripting engine. Documents rarely need to do this; malicious macros almost always do.",
+    "advice": "Find the document the user opened, kill the child process, and check what it downloaded or ran."
+  },
+  {
+    "id": "VIG-002",
+    "title": "PowerShell with an encoded command",
+    "severity": "high",
+    "mitre": {
+      "tactic": "Execution",
+      "technique": "T1059.001",
+      "name": "Command and Scripting Interpreter: PowerShell"
+    },
+    "category": "process",
+    "action": "start",
+    "match": {
+      "all": [
+        {
+          "field": "process.name",
+          "op": "in",
+          "value": [
+            "powershell.exe",
+            "pwsh.exe",
+            "powershell_ise.exe"
+          ]
+        },
+        {
+          "field": "process.command_line",
+          "op": "regex",
+          "value": "\\s[-/](e|ec|en|enc|enco|encodedcommand)\\s+[A-Za-z0-9+/=]{16,}"
+        }
+      ]
+    },
+    "description": "PowerShell was given a Base64-encoded command. Attackers encode commands to hide them from people and simple filters.",
+    "advice": "Decode the Base64 text (it is UTF-16LE) to read the real command, then judge whether it is legitimate."
+  },
+  {
+    "id": "VIG-003",
+    "title": "PowerShell download cradle",
+    "severity": "high",
+    "mitre": {
+      "tactic": "Command and Control",
+      "technique": "T1105",
+      "name": "Ingress Tool Transfer"
+    },
+    "category": "process",
+    "action": "start",
+    "match": {
+      "all": [
+        {
+          "field": "process.name",
+          "op": "in",
+          "value": [
+            "powershell.exe",
+            "pwsh.exe",
+            "powershell_ise.exe"
+          ]
+        },
+        {
+          "field": "process.command_line",
+          "op": "regex",
+          "value": "(downloadstring|downloadfile|downloaddata|invoke-webrequest|iwr\\s|invoke-restmethod|irm\\s|net\\.webclient|start-bitstransfer)"
+        },
+        {
+          "any": [
+            {
+              "field": "process.command_line",
+              "op": "regex",
+              "value": "(iex|invoke-expression)"
+            },
+            {
+              "field": "process.command_line",
+              "op": "regex",
+              "value": "https?://"
+            }
+          ]
+        }
+      ]
+    },
+    "description": "PowerShell fetched content from the internet, often followed by running it in memory (IEX). This is the classic way to load a second-stage payload.",
+    "advice": "Check the URL, block it, and look for the next process or file this one created."
+  },
+  {
+    "id": "VIG-004",
+    "title": "PowerShell started hidden or bypassing policy",
+    "severity": "medium",
+    "mitre": {
+      "tactic": "Defense Evasion",
+      "technique": "T1059.001",
+      "name": "Command and Scripting Interpreter: PowerShell"
+    },
+    "category": "process",
+    "action": "start",
+    "match": {
+      "all": [
+        {
+          "field": "process.name",
+          "op": "in",
+          "value": [
+            "powershell.exe",
+            "pwsh.exe",
+            "powershell_ise.exe"
+          ]
+        },
+        {
+          "any": [
+            {
+              "field": "process.command_line",
+              "op": "regex",
+              "value": "[-/]w(indowstyle)?\\s+h(idden)?\\b"
+            },
+            {
+              "field": "process.command_line",
+              "op": "regex",
+              "value": "[-/](ep|exec|executionpolicy)\\s+(bypass|unrestricted)"
+            },
+            {
+              "field": "process.command_line",
+              "op": "regex",
+              "value": "[-/]nop(rofile)?\\s.*[-/]noni"
+            }
+          ]
+        }
+      ]
+    },
+    "description": "PowerShell was launched with a hidden window or with execution policy bypassed. Admin scripts use these too, so check the context.",
+    "advice": "Review the full command line and the parent process."
+  },
+  {
+    "id": "VIG-005",
+    "title": "Script host running a script from a user folder",
+    "severity": "medium",
+    "mitre": {
+      "tactic": "Execution",
+      "technique": "T1059.005",
+      "name": "Command and Scripting Interpreter: Visual Basic"
+    },
+    "category": "process",
+    "action": "start",
+    "match": {
+      "all": [
+        {
+          "field": "process.name",
+          "op": "in",
+          "value": [
+            "wscript.exe",
+            "cscript.exe"
+          ]
+        },
+        {
+          "field": "process.command_line",
+          "op": "contains_any",
+          "value": [
+            "\\appdata\\local\\temp\\",
+            "\\downloads\\",
+            "\\users\\public\\",
+            "\\appdata\\roaming\\",
+            "\\desktop\\",
+            "\\programdata\\",
+            ".js",
+            ".vbs",
+            ".jse",
+            ".vbe",
+            ".wsf"
+          ]
+        }
+      ]
+    },
+    "description": "Windows Script Host ran a JavaScript or VBScript file. Phishing attachments often arrive as .js or .vbs files inside a ZIP.",
+    "advice": "Quarantine the script file and check where it came from."
+  },
+  {
+    "id": "VIG-010",
+    "title": "certutil used to download or decode a file",
+    "severity": "high",
+    "mitre": {
+      "tactic": "Defense Evasion",
+      "technique": "T1140",
+      "name": "Deobfuscate/Decode Files or Information"
+    },
+    "category": "process",
+    "action": "start",
+    "match": {
+      "all": [
+        {
+          "field": "process.name",
+          "op": "equals",
+          "value": "certutil.exe"
+        },
+        {
+          "field": "process.command_line",
+          "op": "regex",
+          "value": "[-/](urlcache|decode|decodehex|verifyctl)\\b"
+        }
+      ]
+    },
+    "description": "certutil is a certificate tool that attackers abuse to download files and to decode Base64 payloads. It is a classic living-off-the-land binary (LOLBin).",
+    "advice": "Find the file it wrote and quarantine it."
+  },
+  {
+    "id": "VIG-011",
+    "title": "mshta running a script or remote content",
+    "severity": "high",
+    "mitre": {
+      "tactic": "Defense Evasion",
+      "technique": "T1218.005",
+      "name": "System Binary Proxy Execution: Mshta"
+    },
+    "category": "process",
+    "action": "start",
+    "match": {
+      "all": [
+        {
+          "field": "process.name",
+          "op": "equals",
+          "value": "mshta.exe"
+        },
+        {
+          "field": "process.command_line",
+          "op": "regex",
+          "value": "(https?://|javascript:|vbscript:|\\.hta)"
+        }
+      ]
+    },
+    "description": "mshta.exe runs HTML Applications. Attackers use it to execute scripts while appearing as a signed Microsoft binary.",
+    "advice": "Block the URL or quarantine the .hta file, and kill the process."
+  },
+  {
+    "id": "VIG-012",
+    "title": "rundll32 running script or an unusual DLL path",
+    "severity": "high",
+    "mitre": {
+      "tactic": "Defense Evasion",
+      "technique": "T1218.011",
+      "name": "System Binary Proxy Execution: Rundll32"
+    },
+    "category": "process",
+    "action": "start",
+    "match": {
+      "all": [
+        {
+          "field": "process.name",
+          "op": "equals",
+          "value": "rundll32.exe"
+        },
+        {
+          "any": [
+            {
+              "field": "process.command_line",
+              "op": "regex",
+              "value": "(javascript:|vbscript:|mshtml,runhtmlapplication)"
+            },
+            {
+              "field": "process.command_line",
+              "op": "contains_any",
+              "value": [
+                "\\appdata\\local\\temp\\",
+                "\\downloads\\",
+                "\\users\\public\\",
+                "\\appdata\\roaming\\",
+                "\\desktop\\",
+                "\\programdata\\"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "description": "rundll32 loaded a DLL from a user-writable folder or ran inline script. Legitimate DLLs normally live in Windows or Program Files.",
+    "advice": "Hash and quarantine the DLL, then check how it arrived."
+  },
+  {
+    "id": "VIG-013",
+    "title": "regsvr32 loading a remote scriptlet (Squiblydoo)",
+    "severity": "high",
+    "mitre": {
+      "tactic": "Defense Evasion",
+      "technique": "T1218.010",
+      "name": "System Binary Proxy Execution: Regsvr32"
+    },
+    "category": "process",
+    "action": "start",
+    "match": {
+      "all": [
+        {
+          "field": "process.name",
+          "op": "equals",
+          "value": "regsvr32.exe"
+        },
+        {
+          "field": "process.command_line",
+          "op": "regex",
+          "value": "(/i:\\s*https?://|scrobj\\.dll)"
+        }
+      ]
+    },
+    "description": "regsvr32 was told to fetch and run a scriptlet. This technique bypasses application allow-listing.",
+    "advice": "Block the URL and kill the process."
+  },
+  {
+    "id": "VIG-014",
+    "title": "BITS job used to transfer a file",
+    "severity": "medium",
+    "mitre": {
+      "tactic": "Defense Evasion",
+      "technique": "T1197",
+      "name": "BITS Jobs"
+    },
+    "category": "process",
+    "action": "start",
+    "match": {
+      "all": [
+        {
+          "field": "process.name",
+          "op": "equals",
+          "value": "bitsadmin.exe"
+        },
+        {
+          "field": "process.command_line",
+          "op": "regex",
+          "value": "/(transfer|addfile|setnotifycmdline)"
+        }
+      ]
+    },
+    "description": "bitsadmin created a background transfer. BITS jobs can download payloads and even re-run them after reboot.",
+    "advice": "List jobs with 'bitsadmin /list /allusers /verbose' and cancel unknown ones."
+  },
+  {
+    "id": "VIG-015",
+    "title": "Program run from a user-writable folder",
+    "severity": "low",
+    "mitre": {
+      "tactic": "Execution",
+      "technique": "T1204.002",
+      "name": "User Execution: Malicious File"
+    },
+    "category": "process",
+    "action": "start",
+    "match": {
+      "all": [
+        {
+          "field": "process.executable",
+          "op": "contains_any",
+          "value": [
+            "\\appdata\\local\\temp\\",
+            "\\downloads\\",
+            "\\users\\public\\"
+          ]
+        },
+        {
+          "field": "process.executable",
+          "op": "endswith_any",
+          "value": [
+            ".exe",
+            ".scr",
+            ".com"
+          ]
+        }
+      ]
+    },
+    "description": "An executable ran from Temp, Downloads or Public. Installers do this legitimately; so does most malware on first run.",
+    "advice": "Check the file's hash reputation and digital signature."
+  },
+  {
+    "id": "VIG-016",
+    "title": "System process name running from the wrong folder",
+    "severity": "high",
+    "mitre": {
+      "tactic": "Defense Evasion",
+      "technique": "T1036.005",
+      "name": "Masquerading: Match Legitimate Name or Location"
+    },
+    "category": "process",
+    "action": "start",
+    "match": {
+      "all": [
+        {
+          "field": "process.name",
+          "op": "in",
+          "value": [
+            "svchost.exe",
+            "lsass.exe",
+            "csrss.exe",
+            "winlogon.exe",
+            "services.exe",
+            "smss.exe",
+            "explorer.exe",
+            "taskhostw.exe",
+            "spoolsv.exe"
+          ]
+        },
+        {
+          "field": "process.executable",
+          "op": "exists"
+        },
+        {
+          "none": [
+            {
+              "field": "process.executable",
+              "op": "startswith",
+              "value": "C:\\Windows\\System32"
+            },
+            {
+              "field": "process.executable",
+              "op": "startswith",
+              "value": "C:\\Windows\\SysWOW64"
+            },
+            {
+              "field": "process.executable",
+              "op": "equals",
+              "value": "C:\\Windows\\explorer.exe"
+            }
+          ]
+        }
+      ]
+    },
+    "description": "A process uses the name of a core Windows process but runs from somewhere else. Malware does this to blend in.",
+    "advice": "This is almost always malicious. Kill it and quarantine the file."
+  },
+  {
+    "id": "VIG-017",
+    "title": "Microsoft Defender protection turned off from the command line",
+    "severity": "high",
+    "mitre": {
+      "tactic": "Defense Evasion",
+      "technique": "T1562.001",
+      "name": "Impair Defenses: Disable or Modify Tools"
+    },
+    "category": "process",
+    "action": "start",
+    "match": {
+      "any": [
+        {
+          "field": "process.command_line",
+          "op": "regex",
+          "value": "set-mppreference.*-(disablerealtimemonitoring|disablebehaviormonitoring|disableioavprotection)\\s+(\\$true|1)"
+        },
+        {
+          "field": "process.command_line",
+          "op": "regex",
+          "value": "add-mppreference.*-exclusion(path|process|extension)"
+        },
+        {
+          "field": "process.command_line",
+          "op": "regex",
+          "value": "sc(\\.exe)?\\s+(stop|delete|config)\\s+windefend"
+        }
+      ]
+    },
+    "description": "Someone tried to switch off or carve exclusions into Microsoft Defender. Ransomware operators do this right before encrypting.",
+    "advice": "Re-enable protection, remove exclusions, and investigate who ran the command."
+  },
+  {
+    "id": "VIG-018",
+    "title": "Event logs cleared from the command line",
+    "severity": "high",
+    "mitre": {
+      "tactic": "Defense Evasion",
+      "technique": "T1070.001",
+      "name": "Indicator Removal: Clear Windows Event Logs"
+    },
+    "category": "process",
+    "action": "start",
+    "match": {
+      "any": [
+        {
+          "field": "process.command_line",
+          "op": "regex",
+          "value": "wevtutil(\\.exe)?\\s+(cl|clear-log)\\s"
+        },
+        {
+          "field": "process.command_line",
+          "op": "regex",
+          "value": "clear-eventlog|remove-eventlog"
+        }
+      ]
+    },
+    "description": "Event logs were wiped. Attackers clear logs to destroy evidence.",
+    "advice": "Treat the host as compromised and check other sources (Sysmon, SIEM) for what happened before."
+  },
+  {
+    "id": "VIG-020",
+    "title": "Backups or shadow copies deleted (ransomware behaviour)",
+    "severity": "critical",
+    "mitre": {
+      "tactic": "Impact",
+      "technique": "T1490",
+      "name": "Inhibit System Recovery"
+    },
+    "category": "process",
+    "action": "start",
+    "match": {
+      "any": [
+        {
+          "field": "process.command_line",
+          "op": "regex",
+          "value": "vssadmin(\\.exe)?\\s+(delete\\s+shadows|resize\\s+shadowstorage)"
+        },
+        {
+          "field": "process.command_line",
+          "op": "regex",
+          "value": "wmic(\\.exe)?\\s+shadowcopy\\s+delete"
+        },
+        {
+          "field": "process.command_line",
+          "op": "regex",
+          "value": "bcdedit(\\.exe)?.*(recoveryenabled\\s+no|bootstatuspolicy\\s+ignoreallfailures)"
+        },
+        {
+          "field": "process.command_line",
+          "op": "regex",
+          "value": "wbadmin(\\.exe)?\\s+delete\\s+(catalog|systemstatebackup)"
+        },
+        {
+          "field": "process.command_line",
+          "op": "regex",
+          "value": "get-wmiobject\\s+win32_shadowcopy.*delete"
+        }
+      ]
+    },
+    "description": "Volume shadow copies or backups were deleted. Almost every ransomware family does this just before encryption so the victim cannot recover.",
+    "advice": "Act immediately: isolate the host from the network and kill the process tree."
+  },
+  {
+    "id": "VIG-030",
+    "title": "LSASS memory dump attempt",
+    "severity": "critical",
+    "mitre": {
+      "tactic": "Credential Access",
+      "technique": "T1003.001",
+      "name": "OS Credential Dumping: LSASS Memory"
+    },
+    "category": "process",
+    "action": "start",
+    "match": {
+      "any": [
+        {
+          "field": "process.command_line",
+          "op": "regex",
+          "value": "comsvcs(\\.dll)?[, ]+#?(24|minidump)"
+        },
+        {
+          "field": "process.command_line",
+          "op": "regex",
+          "value": "procdump(64)?(\\.exe)?\\s.*(-ma\\s.*)?lsass"
+        },
+        {
+          "field": "process.command_line",
+          "op": "regex",
+          "value": "sekurlsa::|lsadump::|mimikatz"
+        },
+        {
+          "field": "process.command_line",
+          "op": "regex",
+          "value": "rdrleakdiag.*/fullmemdmp"
+        }
+      ]
+    },
+    "description": "A tool tried to dump the memory of LSASS, the process that holds logged-on users' credentials. This is how attackers steal passwords and hashes.",
+    "advice": "Isolate the host, kill the process, and reset passwords for accounts that were logged on."
+  },
+  {
+    "id": "VIG-031",
+    "title": "Registry hive saved (SAM / SECURITY / SYSTEM)",
+    "severity": "high",
+    "mitre": {
+      "tactic": "Credential Access",
+      "technique": "T1003.002",
+      "name": "OS Credential Dumping: Security Account Manager"
+    },
+    "category": "process",
+    "action": "start",
+    "match": {
+      "all": [
+        {
+          "field": "process.name",
+          "op": "equals",
+          "value": "reg.exe"
+        },
+        {
+          "field": "process.command_line",
+          "op": "regex",
+          "value": "\\s(save|export)\\s+hklm\\\\(sam|security|system)\\b"
+        }
+      ]
+    },
+    "description": "The SAM, SECURITY or SYSTEM registry hive was copied. Together they let an attacker extract local password hashes offline.",
+    "advice": "Find and delete the saved hive files, and rotate local administrator passwords."
+  },
+  {
+    "id": "VIG-040",
+    "title": "Scheduled task created from the command line",
+    "severity": "medium",
+    "mitre": {
+      "tactic": "Persistence",
+      "technique": "T1053.005",
+      "name": "Scheduled Task/Job: Scheduled Task"
+    },
+    "category": "process",
+    "action": "start",
+    "match": {
+      "all": [
+        {
+          "field": "process.name",
+          "op": "equals",
+          "value": "schtasks.exe"
+        },
+        {
+          "field": "process.command_line",
+          "op": "regex",
+          "value": "/create"
+        }
+      ]
+    },
+    "description": "A scheduled task was created. Malware uses tasks to start again at logon or on a timer.",
+    "advice": "Open Task Scheduler, inspect the task's action, and delete it if unknown."
+  },
+  {
+    "id": "VIG-041",
+    "title": "Local account created or added to Administrators",
+    "severity": "high",
+    "mitre": {
+      "tactic": "Persistence",
+      "technique": "T1136.001",
+      "name": "Create Account: Local Account"
+    },
+    "category": "process",
+    "action": "start",
+    "match": {
+      "any": [
+        {
+          "field": "process.command_line",
+          "op": "regex",
+          "value": "net1?(\\.exe)?\\s+user\\s+\\S+\\s+\\S+.*/add"
+        },
+        {
+          "field": "process.command_line",
+          "op": "regex",
+          "value": "net1?(\\.exe)?\\s+localgroup\\s+administrators\\s+\\S+\\s+/add"
+        },
+        {
+          "field": "process.command_line",
+          "op": "regex",
+          "value": "new-localuser|add-localgroupmember\\s.*administrators"
+        }
+      ]
+    },
+    "description": "A new local user was created or a user was made an administrator from the command line.",
+    "advice": "Confirm with the owner of the machine; remove the account if it was not expected."
+  },
+  {
+    "id": "VIG-042",
+    "title": "New autostart entry in a Registry Run key",
+    "severity": "high",
+    "mitre": {
+      "tactic": "Persistence",
+      "technique": "T1547.001",
+      "name": "Boot or Logon Autostart Execution: Registry Run Keys"
+    },
+    "category": "persistence",
+    "action": [
+      "create",
+      "modify"
+    ],
+    "match": {
+      "all": [
+        {
+          "field": "persistence.type",
+          "op": "equals",
+          "value": "registry_run"
+        }
+      ]
+    },
+    "description": "A program was added to a Registry Run key, so it starts every time a user logs on.",
+    "advice": "Check the program path. If unknown, delete the value and quarantine the file."
+  },
+  {
+    "id": "VIG-043",
+    "title": "New file in a Startup folder",
+    "severity": "high",
+    "mitre": {
+      "tactic": "Persistence",
+      "technique": "T1547.001",
+      "name": "Boot or Logon Autostart Execution: Startup Folder"
+    },
+    "category": null,
+    "action": [
+      "create",
+      "modify"
+    ],
+    "match": {
+      "any": [
+        {
+          "all": [
+            {
+              "field": "persistence.type",
+              "op": "equals",
+              "value": "startup_folder"
+            }
+          ]
+        },
+        {
+          "all": [
+            {
+              "field": "file.path",
+              "op": "contains",
+              "value": "\\start menu\\programs\\startup\\"
+            }
+          ]
+        }
+      ]
+    },
+    "description": "A file was placed in a Startup folder, so it runs at every logon.",
+    "advice": "Quarantine the file unless you put it there."
+  },
+  {
+    "id": "VIG-044",
+    "title": "New scheduled task registered",
+    "severity": "medium",
+    "mitre": {
+      "tactic": "Persistence",
+      "technique": "T1053.005",
+      "name": "Scheduled Task/Job: Scheduled Task"
+    },
+    "category": "persistence",
+    "action": [
+      "create",
+      "modify"
+    ],
+    "match": {
+      "all": [
+        {
+          "field": "persistence.type",
+          "op": "equals",
+          "value": "scheduled_task"
+        }
+      ]
+    },
+    "description": "A new non-Microsoft scheduled task appeared.",
+    "advice": "Inspect what the task runs and who created it."
+  },
+  {
+    "id": "VIG-045",
+    "title": "New Windows service installed",
+    "severity": "high",
+    "mitre": {
+      "tactic": "Persistence",
+      "technique": "T1543.003",
+      "name": "Create or Modify System Process: Windows Service"
+    },
+    "category": "persistence",
+    "action": [
+      "create",
+      "service_installed"
+    ],
+    "match": {
+      "all": [
+        {
+          "field": "persistence.type",
+          "op": "equals",
+          "value": "service"
+        }
+      ]
+    },
+    "description": "A new service was installed. Services run as SYSTEM, so attackers use them for persistence and privilege escalation (and tools like PsExec create them for lateral movement).",
+    "advice": "Check the service binary path and signature."
+  },
+  {
+    "id": "VIG-050",
+    "title": "File with a fake double extension",
+    "severity": "medium",
+    "mitre": {
+      "tactic": "Defense Evasion",
+      "technique": "T1036.007",
+      "name": "Masquerading: Double File Extension"
+    },
+    "category": "file",
+    "action": [
+      "create",
+      "modify"
+    ],
+    "match": {
+      "all": [
+        {
+          "field": "file.name",
+          "op": "regex",
+          "value": "\\.(pdf|docx?|xlsx?|pptx?|jpe?g|png|txt|zip|rtf)\\.(exe|scr|com|bat|cmd|js|vbs|hta|lnk|ps1)$"
+        }
+      ]
+    },
+    "description": "A file is named to look like a document (invoice.pdf.exe) but is actually executable. Windows hides known extensions by default, so users see only 'invoice.pdf'.",
+    "advice": "Quarantine it. Do not open it."
+  },
+  {
+    "id": "VIG-051",
+    "title": "Script or shortcut dropped in Downloads or Temp",
+    "severity": "low",
+    "mitre": {
+      "tactic": "Initial Access",
+      "technique": "T1566.001",
+      "name": "Phishing: Spearphishing Attachment"
+    },
+    "category": "file",
+    "action": "create",
+    "match": {
+      "all": [
+        {
+          "field": "file.extension",
+          "op": "in",
+          "value": [
+            ".js",
+            ".jse",
+            ".vbs",
+            ".vbe",
+            ".hta",
+            ".wsf",
+            ".lnk",
+            ".iso",
+            ".img"
+          ]
+        },
+        {
+          "field": "file.path",
+          "op": "contains_any",
+          "value": [
+            "\\downloads\\",
+            "\\appdata\\local\\temp\\"
+          ]
+        }
+      ]
+    },
+    "description": "A script, shortcut or disk image arrived in Downloads or Temp. These formats are favourites for phishing payloads.",
+    "advice": "Check where it came from before anyone opens it."
+  },
+  {
+    "id": "VIG-060",
+    "title": "LOLBin connected to the internet",
+    "severity": "medium",
+    "mitre": {
+      "tactic": "Command and Control",
+      "technique": "T1105",
+      "name": "Ingress Tool Transfer"
+    },
+    "category": "network",
+    "action": "connect",
+    "match": {
+      "all": [
+        {
+          "field": "process.name",
+          "op": "in",
+          "value": [
+            "rundll32.exe",
+            "regsvr32.exe",
+            "mshta.exe",
+            "certutil.exe",
+            "bitsadmin.exe",
+            "msbuild.exe",
+            "installutil.exe",
+            "wscript.exe",
+            "cscript.exe",
+            "cmstp.exe"
+          ]
+        },
+        {
+          "field": "destination.public",
+          "op": "is_true"
+        }
+      ]
+    },
+    "description": "A built-in Windows binary that rarely needs the internet opened a connection to a public IP. Often a download of a second-stage payload.",
+    "advice": "Look up the IP, block it, and check what the process wrote to disk."
+  },
+  {
+    "id": "VIG-061",
+    "title": "Connection to a port used by remote-access tools",
+    "severity": "high",
+    "mitre": {
+      "tactic": "Command and Control",
+      "technique": "T1571",
+      "name": "Non-Standard Port"
+    },
+    "category": "network",
+    "action": "connect",
+    "match": {
+      "all": [
+        {
+          "field": "destination.port",
+          "op": "in",
+          "value": [
+            4444,
+            1337,
+            31337,
+            6666,
+            6667,
+            5555,
+            8888,
+            9001,
+            1234
+          ]
+        },
+        {
+          "field": "destination.public",
+          "op": "is_true"
+        }
+      ]
+    },
+    "description": "A process connected out on a port commonly used by Metasploit, IRC bots and other remote-access tools.",
+    "advice": "Identify the process; if it is not expected, block the IP and kill it."
+  },
+  {
+    "id": "VIG-062",
+    "title": "PowerShell connected to the internet",
+    "severity": "low",
+    "mitre": {
+      "tactic": "Command and Control",
+      "technique": "T1059.001",
+      "name": "Command and Scripting Interpreter: PowerShell"
+    },
+    "category": "network",
+    "action": "connect",
+    "match": {
+      "all": [
+        {
+          "field": "process.name",
+          "op": "in",
+          "value": [
+            "powershell.exe",
+            "pwsh.exe",
+            "powershell_ise.exe"
+          ]
+        },
+        {
+          "field": "destination.public",
+          "op": "is_true"
+        }
+      ]
+    },
+    "description": "PowerShell opened an outbound connection. Fine for admin scripts and updates; worth a look otherwise.",
+    "advice": "Correlate with the PowerShell process's command line."
+  },
+  {
+    "id": "VIG-070",
+    "title": "Known-bad file hash",
+    "severity": "critical",
+    "mitre": {
+      "tactic": "Execution",
+      "technique": "T1204",
+      "name": "User Execution"
+    },
+    "category": null,
+    "action": null,
+    "match": {
+      "all": [
+        {
+          "field": "intel.hash_match",
+          "op": "is_true"
+        }
+      ]
+    },
+    "description": "A file or process matches a hash on your local IOC list (iocs/bad_hashes.txt).",
+    "advice": "Quarantine the file and kill any process running from it."
+  },
+  {
+    "id": "VIG-071",
+    "title": "Connection to a known-bad IP",
+    "severity": "critical",
+    "mitre": {
+      "tactic": "Command and Control",
+      "technique": "T1071",
+      "name": "Application Layer Protocol"
+    },
+    "category": "network",
+    "action": "connect",
+    "match": {
+      "all": [
+        {
+          "field": "intel.ip_match",
+          "op": "is_true"
+        }
+      ]
+    },
+    "description": "A process connected to an IP on your local IOC list (iocs/bad_ips.txt).",
+    "advice": "Block the IP and investigate the process."
+  },
+  {
+    "id": "VIG-072",
+    "title": "VirusTotal: file flagged by multiple engines",
+    "severity": "high",
+    "mitre": {
+      "tactic": "Execution",
+      "technique": "T1204",
+      "name": "User Execution"
+    },
+    "category": null,
+    "action": null,
+    "match": {
+      "all": [
+        {
+          "field": "intel.vt_malicious",
+          "op": "gte",
+          "value": 3
+        }
+      ]
+    },
+    "description": "Three or more antivirus engines on VirusTotal flag this file as malicious.",
+    "advice": "Quarantine it and check the VirusTotal report for the family name."
+  },
+  {
+    "id": "VIG-080",
+    "title": "Security or system event log cleared",
+    "severity": "high",
+    "mitre": {
+      "tactic": "Defense Evasion",
+      "technique": "T1070.001",
+      "name": "Indicator Removal: Clear Windows Event Logs"
+    },
+    "category": "system",
+    "action": "log_cleared",
+    "match": {
+      "all": [
+        {
+          "field": "action",
+          "op": "equals",
+          "value": "log_cleared"
+        }
+      ]
+    },
+    "description": "Windows recorded that an event log was cleared (event 1102 or 104).",
+    "advice": "Find out who did it and why; treat as suspicious unless it was planned maintenance."
+  },
+  {
+    "id": "VIG-081",
+    "title": "New local user account",
+    "severity": "medium",
+    "mitre": {
+      "tactic": "Persistence",
+      "technique": "T1136.001",
+      "name": "Create Account: Local Account"
+    },
+    "category": "auth",
+    "action": "user_created",
+    "match": {
+      "all": [
+        {
+          "field": "user.name",
+          "op": "exists"
+        }
+      ]
+    },
+    "description": "A user account was created (event 4720).",
+    "advice": "Confirm it was expected."
+  },
+  {
+    "id": "VIG-082",
+    "title": "User added to a security group",
+    "severity": "high",
+    "mitre": {
+      "tactic": "Persistence",
+      "technique": "T1098",
+      "name": "Account Manipulation"
+    },
+    "category": "auth",
+    "action": "group_member_added",
+    "match": {
+      "all": [
+        {
+          "field": "group.name",
+          "op": "exists"
+        }
+      ]
+    },
+    "description": "A user was added to a security-enabled group (events 4728, 4732, 4756). Being added to Administrators gives full control of the machine.",
+    "advice": "Confirm with the owner; remove the membership if not expected."
+  },
+  {
+    "id": "VIG-083",
+    "title": "Microsoft Defender detected malware",
+    "severity": "high",
+    "mitre": {
+      "tactic": "Execution",
+      "technique": "T1204",
+      "name": "User Execution"
+    },
+    "category": "av",
+    "action": [
+      "malware_detected",
+      "malware_action"
+    ],
+    "match": {
+      "all": [
+        {
+          "field": "threat.name",
+          "op": "exists"
+        }
+      ]
+    },
+    "description": "Microsoft Defender reported a threat. Vigil surfaces it next to the process and network activity around it.",
+    "advice": "Check the timeline for what ran just before and after the detection."
+  },
+  {
+    "id": "VIG-084",
+    "title": "Defender real-time protection turned off",
+    "severity": "high",
+    "mitre": {
+      "tactic": "Defense Evasion",
+      "technique": "T1562.001",
+      "name": "Impair Defenses: Disable or Modify Tools"
+    },
+    "category": "av",
+    "action": "realtime_disabled",
+    "match": {
+      "all": [
+        {
+          "field": "action",
+          "op": "equals",
+          "value": "realtime_disabled"
+        }
+      ]
+    },
+    "description": "Real-time protection was switched off (Defender event 5001).",
+    "advice": "Turn it back on and find out who turned it off."
+  }
+]

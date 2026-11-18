@@ -1,0 +1,3 @@
+# Known-bad file hashes (SHA-256), one per line. Anything after # is a comment.
+# Vigil reloads this file every minute. Add hashes from threat reports,
+# MalwareBazaar, or your own investigations.

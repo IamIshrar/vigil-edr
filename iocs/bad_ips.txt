@@ -1,0 +1,3 @@
+# Known-bad IP addresses, one per line. Anything after # is a comment.
+# Vigil reloads this file every minute.
+203.0.113.50   # example only: RFC 5737 documentation range, used by tools/simulate.py --inject
